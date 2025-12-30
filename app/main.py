@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from app.models.database import init_db
+from app.routers import sources, content, manual
 
 
 @asynccontextmanager
@@ -25,6 +26,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Register routers
+app.include_router(sources.router)
+app.include_router(content.router)
+app.include_router(manual.router)
 
 
 @app.get("/", response_class=HTMLResponse)
