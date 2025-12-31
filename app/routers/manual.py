@@ -1,11 +1,12 @@
 """API routes for manually triggering pipeline operations."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
 from app.models.database import get_session
 from app.services.fetcher import fetch_from_all_sources
+from app.services.synthesizer import synthesize_weekly_briefing
 
 router = APIRouter(prefix="/api/run", tags=["manual"])
 
@@ -43,17 +44,45 @@ async def run_fetch(session: AsyncSession = Depends(get_session)):
     }
 
 
-@router.post("/synthesize")
-async def run_synthesize():
+class SynthesizeResult(BaseModel):
+    """Schema for synthesize result."""
+    briefing_id: int
+    title: str
+    content_items_processed: int
+    status: str
+
+
+@router.post("/synthesize", response_model=SynthesizeResult)
+async def run_synthesize(
+    days_back: int = 7, session: AsyncSession = Depends(get_session)
+):
     """
     Manually trigger briefing synthesis with Claude.
 
-    (To be implemented in Phase 3)
+    Args:
+        days_back: Number of days of content to synthesize (default: 7)
+        session: Database session
+
+    Returns:
+        Synthesis result with briefing ID and metadata
+
+    Raises:
+        400: If no content available to synthesize
+        500: If synthesis fails
     """
-    return {
-        "status": "not_implemented",
-        "message": "Synthesis will be implemented in Phase 3"
-    }
+    try:
+        briefing = await synthesize_weekly_briefing(session, days_back=days_back)
+
+        return {
+            "briefing_id": briefing.id,
+            "title": briefing.title,
+            "content_items_processed": len(briefing.content_items),
+            "status": "completed",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Synthesis failed: {str(e)}")
 
 
 @router.post("/export/notion")

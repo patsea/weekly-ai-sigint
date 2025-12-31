@@ -42,6 +42,9 @@ async def fetch_from_source(source: Source, session: AsyncSession) -> Dict[str, 
 
 async def _fetch_rss(source: Source, session: AsyncSession, result: Dict[str, Any]):
     """Fetch content from RSS feed."""
+    # Store source_id early to avoid lazy loading issues
+    source_id = source.id
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(source.url)
         response.raise_for_status()
@@ -49,6 +52,7 @@ async def _fetch_rss(source: Source, session: AsyncSession, result: Dict[str, An
         # Parse RSS feed
         feed = feedparser.parse(response.text)
 
+        # Process each entry
         for entry in feed.entries:
             result["fetched"] += 1
 
@@ -64,23 +68,27 @@ async def _fetch_rss(source: Source, session: AsyncSession, result: Dict[str, An
             elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
                 published_at = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
 
-            # Try to save (deduplication handled by unique constraint)
+            # Check if URL already exists
+            existing = await session.execute(
+                select(ContentItem).where(ContentItem.url == url)
+            )
+            if existing.scalar_one_or_none():
+                result["duplicates"] += 1
+                continue
+
+            # Create and add new content item
             content_item = ContentItem(
-                source_id=source.id,
+                source_id=source_id,
                 title=title,
                 url=url,
                 summary=summary,
                 published_at=published_at
             )
+            session.add(content_item)
+            result["new"] += 1
 
-            try:
-                session.add(content_item)
-                await session.commit()
-                result["new"] += 1
-            except IntegrityError:
-                # URL already exists (duplicate)
-                await session.rollback()
-                result["duplicates"] += 1
+        # Commit all new items at once
+        await session.commit()
 
 
 async def _fetch_blog(source: Source, session: AsyncSession, result: Dict[str, Any]):

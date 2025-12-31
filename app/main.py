@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from app.models.database import init_db
-from app.routers import sources, content, manual
+from app.routers import sources, content, manual, briefings
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app = FastAPI(
 # Register routers
 app.include_router(sources.router)
 app.include_router(content.router)
+app.include_router(briefings.router)
 app.include_router(manual.router)
 
 

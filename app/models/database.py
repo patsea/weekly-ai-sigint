@@ -8,6 +8,7 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,  # Set to True for SQL logging
     future=True,
+    connect_args={"check_same_thread": False},
 )
 
 # Create session factory
@@ -26,6 +27,9 @@ async def get_session() -> AsyncSession:
     async with async_session_maker() as session:
         try:
             yield session
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
 

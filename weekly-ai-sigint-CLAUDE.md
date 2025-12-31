@@ -264,6 +264,55 @@ curl http://localhost:8000/api/scheduler/status
 - Verify content isn't exceeding context window
 - Check Anthropic API status: https://status.anthropic.com
 
+### macOS-Specific Issues
+
+**`timeout: command not found`**
+```bash
+# timeout is GNU coreutils, not available on macOS by default
+# Option 1: Install GNU coreutils
+brew install coreutils
+gtimeout 5 command  # Use gtimeout instead
+
+# Option 2: Use Python-based alternative
+python -c "import subprocess; subprocess.run(['command'], timeout=5)"
+```
+
+**`greenlet` import error with async SQLAlchemy**
+```bash
+# Ensure greenlet is installed
+pip install greenlet==3.0.3
+```
+
+**Background process loses venv**
+```bash
+# Use explicit path instead of relying on activation
+./venv/bin/uvicorn app.main:app &
+
+# Or keep activation in subshell
+(source venv/bin/activate && uvicorn app.main:app) &
+```
+
+### SQLite Async Thread Errors
+
+**`SQLite objects created in a thread can only be used in that same thread`**
+
+This occurs when SQLite connections are reused across async contexts. Fix by updating `app/models/database.py`:
+
+```python
+# Ensure these settings are present:
+engine = create_async_engine(
+    settings.database_url,
+    connect_args={"check_same_thread": False},  # Critical fix
+    pool_pre_ping=True,
+)
+
+# Use async_sessionmaker (not sessionmaker)
+from sqlalchemy.ext.asyncio import async_sessionmaker
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+```
+
+If error persists after fix, restart the server to pick up changes.
+
 ## Key Design Decisions
 
 1. **SQLite over Postgres** — Local-only, single user, no external DB dependency

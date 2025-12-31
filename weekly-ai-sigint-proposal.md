@@ -502,6 +502,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 sqlalchemy==2.0.25
 aiosqlite==0.19.0
+greenlet==3.0.3
 python-dotenv==1.0.0
 httpx==0.26.0
 feedparser==6.0.10
@@ -557,20 +558,42 @@ def get_settings() -> Settings:
 
 **4. `app/models/database.py`**
 ```python
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from app.config import get_settings
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, echo=False)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+# Create async engine with SQLite thread safety fix
+engine = create_async_engine(
+    settings.database_url, 
+    echo=False,
+    connect_args={"check_same_thread": False},  # Required for async SQLite
+    pool_pre_ping=True,  # Verify connections before use
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
+
 Base = declarative_base()
 
 async def get_db():
+    """Dependency for FastAPI routes - yields scoped session."""
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 async def init_db():
+    """Create all tables on startup."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 ```
@@ -1305,6 +1328,14 @@ SQLite at `data/briefings.db`. Tables: sources, content_items, briefings, creden
 ### Pitfall 8: Timezone Confusion
 **Problem**: Mixing UTC and local times causes scheduling issues.
 **Mitigation**: Store all times as UTC in database. Convert to user timezone only for display. Use `pytz` explicitly.
+
+### Pitfall 9: macOS GNU Coreutils Missing
+**Problem**: Commands like `timeout` fail on macOS — they're GNU coreutils not available by default.
+**Mitigation**: Use `gtimeout` (from `brew install coreutils`) or Python-based alternatives. Test on both Linux and macOS.
+
+### Pitfall 10: Python Async Needs greenlet
+**Problem**: SQLAlchemy async fails with `greenlet` import error on some systems.
+**Mitigation**: Explicitly include `greenlet==3.0.3` in requirements.txt for any async SQLAlchemy project.
 
 ---
 
