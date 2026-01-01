@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.models.database import init_db
-from app.routers import sources, content, manual, briefings, views, settings
+from app.routers import sources, content, manual, briefings, views, settings, prompt
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.include_router(content.router)
 app.include_router(briefings.router)
 app.include_router(manual.router)
 app.include_router(settings.router)
+app.include_router(prompt.router)
 
 
 @app.get("/health")

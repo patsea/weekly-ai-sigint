@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Prompt Editor - Weekly AI Sigint{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Prompt Editor</h1>
+    <p class="text-gray-600 mt-1">Edit the Claude prompt template used for briefing synthesis</p>
+</div>
+
+<!-- Status Message -->
+<div id="status-message" class="hidden mb-4 p-4 rounded"></div>
+
+<!-- Editor Section -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <h2 class="text-lg font-semibold">Prompt Template</h2>
+            <p class="text-sm text-gray-500" id="file-path">Loading...</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="resetPrompt()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">
+                Reset to Default
+            </button>
+            <button onclick="savePrompt()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Textarea Editor -->
+    <textarea
+        id="prompt-editor"
+        class="w-full h-96 font-mono text-sm border rounded p-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder="Loading prompt template..."
+    ></textarea>
+
+    <!-- Stats Bar -->
+    <div class="flex justify-between mt-2 text-sm text-gray-500">
+        <div>
+            <span id="char-count">0</span> characters ·
+            <span id="word-count">0</span> words ·
+            <span id="line-count">0</span> lines
+        </div>
+        <div>
+            <button onclick="togglePreview()" class="text-blue-500 hover:underline">
+                Toggle Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Section (hidden by default) -->
+<div id="preview-section" class="hidden bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold mb-4">Preview (with sample data)</h2>
+    <div id="preview-content" class="prose max-w-none bg-gray-50 p-4 rounded border">
+        Loading preview...
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Template Variables</h2>
+    <p class="text-gray-600 mb-4">Use these variables in your prompt template:</p>
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="text-left p-2">Variable</th>
+                <th class="text-left p-2">Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="border-t">
+                <td class="p-2 font-mono text-blue-600">{content_items}</td>
+                <td class="p-2">The formatted content items to analyze</td>
+            </tr>
+            <tr class="border-t">
+                <td class="p-2 font-mono text-blue-600">{week_start}</td>
+                <td class="p-2">Start date of the week being analyzed</td>
+            </tr>
+            <tr class="border-t">
+                <td class="p-2 font-mono text-blue-600">{week_end}</td>
+                <td class="p-2">End date of the week being analyzed</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+let originalContent = '';
+
+async function loadPrompt() {
+    try {
+        const response = await fetch('/api/prompt/');
+        if (!response.ok) throw new Error('Failed to load prompt');
+        const data = await response.json();
+
+        document.getElementById('prompt-editor').value = data.content;
+        document.getElementById('file-path').textContent = data.file_path;
+        originalContent = data.content;
+        updateStats();
+    } catch (error) {
+        showStatus('Error loading prompt: ' + error.message, 'error');
+    }
+}
+
+async function savePrompt() {
+    const content = document.getElementById('prompt-editor').value;
+
+    try {
+        const response = await fetch('/api/prompt/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to save');
+
+        originalContent = content;
+        showStatus('Prompt saved successfully!', 'success');
+        updateStats();
+    } catch (error) {
+        showStatus('Error saving prompt: ' + error.message, 'error');
+    }
+}
+
+async function resetPrompt() {
+    if (!confirm('Reset prompt to default? Your current changes will be lost.')) return;
+
+    try {
+        const response = await fetch('/api/prompt/reset', { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to reset');
+
+        await loadPrompt();
+        showStatus('Prompt reset to default', 'success');
+    } catch (error) {
+        showStatus('Error resetting prompt: ' + error.message, 'error');
+    }
+}
+
+async function togglePreview() {
+    const section = document.getElementById('preview-section');
+    const isHidden = section.classList.contains('hidden');
+
+    if (isHidden) {
+        try {
+            const response = await fetch('/api/prompt/preview');
+            const data = await response.json();
+
+            // Simple markdown-ish rendering
+            let html = data.preview
+                .replace(/^### (.+)$/gm, '<h3 class="font-bold mt-4">$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-4">$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4">$1</h1>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+
+            document.getElementById('preview-content').innerHTML = html;
+        } catch (error) {
+            document.getElementById('preview-content').innerHTML = 'Error loading preview';
+        }
+    }
+
+    section.classList.toggle('hidden');
+}
+
+function updateStats() {
+    const content = document.getElementById('prompt-editor').value;
+    document.getElementById('char-count').textContent = content.length;
+    document.getElementById('word-count').textContent = content.split(/\s+/).filter(w => w).length;
+    document.getElementById('line-count').textContent = content.split('\n').length;
+}
+
+function showStatus(message, type) {
+    const el = document.getElementById('status-message');
+    el.textContent = message;
+    el.className = type === 'error'
+        ? 'mb-4 p-4 rounded bg-red-100 text-red-700'
+        : 'mb-4 p-4 rounded bg-green-100 text-green-700';
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// Event listeners
+document.getElementById('prompt-editor').addEventListener('input', updateStats);
+
+// Warn on unsaved changes
+window.addEventListener('beforeunload', (e) => {
+    const current = document.getElementById('prompt-editor').value;
+    if (current !== originalContent) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Load on page load
+loadPrompt();
+</script>
+{% endblock %}

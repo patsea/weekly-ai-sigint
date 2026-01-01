@@ -74,3 +74,11 @@ async def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {
         "request": request,
     })
+
+
+@router.get("/prompt", response_class=HTMLResponse)
+async def prompt_page(request: Request):
+    """Prompt editor page."""
+    return templates.TemplateResponse("prompt.html", {
+        "request": request,
+    })
