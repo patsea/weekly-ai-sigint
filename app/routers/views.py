@@ -51,11 +51,11 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     })
 
 
-# Placeholder routes for other pages (will be implemented in later sub-phases)
+# Sources management page
 @router.get("/sources", response_class=HTMLResponse)
 async def sources_page(request: Request):
-    """Sources management page (placeholder)."""
-    return templates.TemplateResponse("base.html", {
+    """Sources management page."""
+    return templates.TemplateResponse("sources.html", {
         "request": request,
     })
 

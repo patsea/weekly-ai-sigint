@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}Sources - Weekly AI Sigint{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Content Sources</h1>
+    <button onclick="showCreateModal()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+        + Add Source
+    </button>
+</div>
+
+<!-- Sources Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="sources-table-body" class="bg-white divide-y divide-gray-200">
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                    <div class="spinner mx-auto"></div>
+                    <p class="mt-2">Loading sources...</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="source-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="modal-title" class="text-lg font-semibold">Add Source</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form id="source-form" onsubmit="handleSubmit(event)">
+            <input type="hidden" id="source-id" name="id">
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+                    Name *
+                </label>
+                <input type="text" id="name" name="name" required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="category">
+                    Category *
+                </label>
+                <select id="category" name="category" required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">Select category...</option>
+                    <option value="newsletter">Newsletter</option>
+                    <option value="person">Person</option>
+                    <option value="organization">Organization</option>
+                    <option value="media">Media</option>
+                    <option value="research">Research</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="source_type">
+                    Source Type *
+                </label>
+                <select id="source_type" name="source_type" required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">Select type...</option>
+                    <option value="rss">RSS Feed</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="blog">Blog</option>
+                    <option value="company">Company</option>
+                    <option value="newsletter">Newsletter</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="url">
+                    URL *
+                </label>
+                <input type="url" id="url" name="url" required
+                    placeholder="https://example.com/feed"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="priority">
+                    Priority (1-10) *
+                </label>
+                <input type="number" id="priority" name="priority" min="1" max="10" value="5" required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="active" name="active" checked
+                        class="mr-2 leading-tight">
+                    <span class="text-sm text-gray-700">Active</span>
+                </label>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeModal()"
+                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-semibold mb-4">Confirm Delete</h3>
+        <p class="mb-6 text-gray-700">Are you sure you want to delete this source? This action cannot be undone.</p>
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeDeleteModal()"
+                class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">
+                Cancel
+            </button>
+            <button onclick="confirmDelete()"
+                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let sources = [];
+let deleteSourceId = null;
+
+// Load sources on page load
+document.addEventListener('DOMContentLoaded', loadSources);
+
+async function loadSources() {
+    try {
+        const response = await fetch('/api/sources/');
+        sources = await response.json();
+        renderSources();
+    } catch (error) {
+        document.getElementById('sources-table-body').innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-red-600">
+                    Error loading sources: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function renderSources() {
+    const tbody = document.getElementById('sources-table-body');
+
+    if (sources.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                    No sources configured yet. Click "Add Source" to get started.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = sources.map(source => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="font-medium text-gray-900">${source.name}</div>
+                <div class="text-sm text-gray-500 truncate max-w-xs">${source.url}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-700 capitalize">${source.category}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-700 uppercase">${source.source_type}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${source.priority}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="${source.active ? 'badge-active' : 'badge-inactive'}">
+                    ${source.active ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <button onclick="editSource(${source.id})" class="text-blue-600 hover:text-blue-900">Edit</button>
+                <button onclick="toggleActive(${source.id}, ${!source.active})" class="text-green-600 hover:text-green-900">
+                    ${source.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button onclick="showDeleteModal(${source.id})" class="text-red-600 hover:text-red-900">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showCreateModal() {
+    document.getElementById('modal-title').textContent = 'Add Source';
+    document.getElementById('source-form').reset();
+    document.getElementById('source-id').value = '';
+    document.getElementById('active').checked = true;
+    document.getElementById('source-modal').classList.remove('hidden');
+}
+
+function editSource(id) {
+    const source = sources.find(s => s.id === id);
+    if (!source) return;
+
+    document.getElementById('modal-title').textContent = 'Edit Source';
+    document.getElementById('source-id').value = source.id;
+    document.getElementById('name').value = source.name;
+    document.getElementById('category').value = source.category;
+    document.getElementById('source_type').value = source.source_type;
+    document.getElementById('url').value = source.url;
+    document.getElementById('priority').value = source.priority;
+    document.getElementById('active').checked = source.active;
+    document.getElementById('source-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('source-modal').classList.add('hidden');
+}
+
+async function handleSubmit(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+    const sourceId = formData.get('id');
+    const data = {
+        name: formData.get('name'),
+        category: formData.get('category'),
+        source_type: formData.get('source_type'),
+        url: formData.get('url'),
+        priority: parseInt(formData.get('priority')),
+        active: formData.get('active') === 'on'
+    };
+
+    try {
+        const url = sourceId ? `/api/sources/${sourceId}` : '/api/sources/';
+        const method = sourceId ? 'PATCH' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to save source');
+        }
+
+        closeModal();
+        await loadSources();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function toggleActive(id, active) {
+    try {
+        const response = await fetch(`/api/sources/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: active })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update source');
+        }
+
+        await loadSources();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+function showDeleteModal(id) {
+    deleteSourceId = id;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    deleteSourceId = null;
+    document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+    if (!deleteSourceId) return;
+
+    try {
+        const response = await fetch(`/api/sources/${deleteSourceId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete source');
+        }
+
+        closeDeleteModal();
+        await loadSources();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+        closeDeleteModal();
+    }
+}
+</script>
+{% endblock %}
