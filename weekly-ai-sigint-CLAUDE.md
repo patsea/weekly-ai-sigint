@@ -189,15 +189,68 @@ SELECT id, title, created_at FROM briefings ORDER BY created_at DESC;
 
 ## Build Phases
 
-This project was built in 5 phases. If resuming or debugging:
+This project is built in 5 phases. Current status:
 
-| Phase | Focus | Key Files |
-|-------|-------|-----------|
-| 1 | Foundation | models/, config.py, main.py |
-| 2 | Fetcher | services/fetcher.py, routers/sources.py |
-| 3 | Synthesizer | services/synthesizer.py, prompts/ |
-| 4 | Exports | services/notion_export.py, slack_notify.py |
-| 5 | UI + Scheduler | templates/, services/scheduler.py |
+| Phase | Focus | Key Files | Status |
+|-------|-------|-----------|--------|
+| 1 | Foundation | models/, config.py, main.py | ✅ Complete |
+| 2 | Fetcher | services/fetcher.py, routers/sources.py | ✅ Complete |
+| 3 | Synthesizer | services/synthesizer.py, prompts/ | ✅ Complete |
+| 4 | Exports | services/notion_export.py, slack_notify.py | ✅ Complete |
+| 5 | UI + Scheduler | templates/, services/scheduler.py | 🔲 Next |
+
+### Phase 5 Sub-Phases
+
+Phase 5 is broken into 6 sub-phases:
+
+| Sub-Phase | Focus | Key Files | Status |
+|-----------|-------|-----------|--------|
+| 5A | Base Templates + Dashboard | templates/base.html, index.html | 🔲 Next |
+| 5B | Sources Management UI | templates/sources.html, routers/views.py | 🔲 Pending |
+| 5C | Briefings Viewer | templates/briefings.html, briefing_detail.html | 🔲 Pending |
+| 5D | Settings + Credentials UI | templates/settings.html | 🔲 Pending |
+| 5E | Prompt Editor | templates/prompt.html | 🔲 Pending |
+| 5F | APScheduler Integration | services/scheduler.py | 🔲 Pending |
+
+**Sub-phase details:**
+
+**5A: Base Templates + Dashboard**
+- `templates/base.html` — Tailwind CSS layout, navigation
+- `templates/index.html` — Dashboard with stats (sources, content, last briefing)
+- `static/css/custom.css` — Custom styles
+- Quick action buttons (fetch, synthesize)
+- Verification: `curl http://localhost:8000/ | grep -i dashboard`
+
+**5B: Sources Management UI**
+- `templates/sources.html` — List, add, edit, delete sources
+- `routers/views.py` — HTML page routes
+- Filter by category, import from JSON
+- Verification: Open http://localhost:8000/sources in browser
+
+**5C: Briefings Viewer**
+- `templates/briefings.html` — List past briefings
+- `templates/briefing_detail.html` — Single briefing view
+- Links to Notion page if exported
+- Verification: Open http://localhost:8000/briefings in browser
+
+**5D: Settings + Credentials UI**
+- `templates/settings.html` — API keys, config
+- Fernet encryption for credentials storage
+- Test connection buttons
+- Verification: Open http://localhost:8000/settings in browser
+
+**5E: Prompt Editor**
+- `templates/prompt.html` — Edit Claude prompt template
+- Load/save to `prompts/sunday_briefing.md`
+- Verification: Open http://localhost:8000/prompt in browser
+
+**5F: APScheduler Integration**
+- `services/scheduler.py` — Weekly cron job
+- Status endpoint: `GET /api/scheduler/status`
+- Manual pause/resume
+- Verification: `curl http://localhost:8000/api/scheduler/status`
+
+**To continue build:** Run Phase 5A (Base Templates + Dashboard)
 
 ## Verification Commands
 
@@ -312,6 +365,38 @@ AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_co
 ```
 
 If error persists after fix, restart the server to pick up changes.
+
+### SQLAlchemy Async Relationship Lazy Loading
+
+**`'ContentItem' object has no attribute 'source'`** (or similar relationship access errors)
+
+In async SQLAlchemy, lazy loading relationships doesn't work. You can't access `item.source` after the query completes.
+
+**Fix Option 1 — Eagerly load with selectinload:**
+```python
+from sqlalchemy.orm import selectinload
+
+stmt = select(ContentItem).options(selectinload(ContentItem.source))
+result = await session.execute(stmt)
+items = result.scalars().all()
+# Now item.source works
+```
+
+**Fix Option 2 — Separate lookup (used in this project):**
+```python
+# Fetch items
+items = (await session.execute(select(ContentItem))).scalars().all()
+
+# Fetch sources separately
+source_ids = list(set(item.source_id for item in items))
+sources_result = await session.execute(select(Source).where(Source.id.in_(source_ids)))
+sources_by_id = {s.id: s for s in sources_result.scalars().all()}
+
+# Use lookup
+for item in items:
+    source = sources_by_id.get(item.source_id)
+    source_name = source.name if source else "Unknown"
+```
 
 ## Key Design Decisions
 

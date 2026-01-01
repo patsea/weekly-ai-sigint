@@ -34,6 +34,7 @@ class Briefing(Base):
 
     # Notion/Slack export tracking
     notion_page_id = Column(String, nullable=True)
+    notion_url = Column(String, nullable=True)
     notion_exported_at = Column(DateTime(timezone=True), nullable=True)
     slack_sent_at = Column(DateTime(timezone=True), nullable=True)
 
