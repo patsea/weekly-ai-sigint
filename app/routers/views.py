@@ -70,7 +70,7 @@ async def briefings_page(request: Request):
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
-    """Settings page (placeholder)."""
-    return templates.TemplateResponse("base.html", {
+    """Settings page."""
+    return templates.TemplateResponse("settings.html", {
         "request": request,
     })

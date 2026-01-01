@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Settings - Weekly AI Sigint{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Settings</h1>
+    <p class="text-gray-600 mt-1">Configure API credentials and system preferences</p>
+</div>
+
+<!-- Status Message -->
+<div id="status-message" class="hidden mb-4 p-4 rounded"></div>
+
+<!-- Settings Form -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <form id="settings-form" onsubmit="saveSettings(event)">
+        <!-- API Credentials Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 pb-2 border-b">API Credentials</h2>
+
+            <!-- Anthropic API Key -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="anthropic_api_key">
+                    Anthropic API Key *
+                </label>
+                <div class="relative">
+                    <input type="password" id="anthropic_api_key" name="anthropic_api_key"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pr-10"
+                        placeholder="sk-ant-...">
+                    <button type="button" onclick="toggleVisibility('anthropic_api_key')"
+                        class="absolute right-2 top-2 text-gray-500 hover:text-gray-700">
+                        👁️
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    Required for briefing synthesis. Get from <a href="https://console.anthropic.com/" target="_blank" class="text-blue-600 hover:underline">Anthropic Console</a>
+                </p>
+            </div>
+
+            <!-- Notion Token -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="notion_token">
+                    Notion Integration Token
+                </label>
+                <div class="relative">
+                    <input type="password" id="notion_token" name="notion_token"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pr-10"
+                        placeholder="secret_...">
+                    <button type="button" onclick="toggleVisibility('notion_token')"
+                        class="absolute right-2 top-2 text-gray-500 hover:text-gray-700">
+                        👁️
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    Optional. For exporting briefings to Notion. Get from <a href="https://www.notion.so/my-integrations" target="_blank" class="text-blue-600 hover:underline">Notion Integrations</a>
+                </p>
+            </div>
+
+            <!-- Notion Page ID -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="notion_page_id">
+                    Notion Parent Page ID
+                </label>
+                <input type="text" id="notion_page_id" name="notion_page_id"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    placeholder="a1b2c3d4e5f6...">
+                <p class="text-xs text-gray-500 mt-1">
+                    Page ID where briefings will be created as child pages
+                </p>
+            </div>
+
+            <!-- Slack Webhook URL -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="slack_webhook_url">
+                    Slack Webhook URL
+                </label>
+                <div class="relative">
+                    <input type="password" id="slack_webhook_url" name="slack_webhook_url"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pr-10"
+                        placeholder="https://hooks.slack.com/services/...">
+                    <button type="button" onclick="toggleVisibility('slack_webhook_url')"
+                        class="absolute right-2 top-2 text-gray-500 hover:text-gray-700">
+                        👁️
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    Optional. For Slack notifications. Create incoming webhook in <a href="https://api.slack.com/apps" target="_blank" class="text-blue-600 hover:underline">Slack Apps</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- System Configuration Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 pb-2 border-b">System Configuration</h2>
+
+            <!-- Timezone -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="timezone">
+                    Timezone
+                </label>
+                <input type="text" id="timezone" name="timezone"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    placeholder="Europe/Madrid">
+                <p class="text-xs text-gray-500 mt-1">
+                    IANA timezone name (e.g., America/New_York, Europe/London, Asia/Tokyo)
+                </p>
+            </div>
+        </div>
+
+        <!-- Scheduler Configuration Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 pb-2 border-b">Weekly Schedule</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Day of Week -->
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="weekly_run_day">
+                        Day of Week
+                    </label>
+                    <select id="weekly_run_day" name="weekly_run_day"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="0">Monday</option>
+                        <option value="1">Tuesday</option>
+                        <option value="2">Wednesday</option>
+                        <option value="3">Thursday</option>
+                        <option value="4">Friday</option>
+                        <option value="5">Saturday</option>
+                        <option value="6">Sunday</option>
+                    </select>
+                </div>
+
+                <!-- Hour -->
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="weekly_run_hour">
+                        Hour (0-23)
+                    </label>
+                    <input type="number" id="weekly_run_hour" name="weekly_run_hour" min="0" max="23"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <!-- Minute -->
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="weekly_run_minute">
+                        Minute (0-59)
+                    </label>
+                    <input type="number" id="weekly_run_minute" name="weekly_run_minute" min="0" max="59"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+                When the automated weekly pipeline should run (Phase 5F - not yet implemented)
+            </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between items-center pt-4 border-t">
+            <div>
+                <button type="button" onclick="testConnections()"
+                    class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">
+                    Test Connections
+                </button>
+            </div>
+            <div class="space-x-2">
+                <button type="button" onclick="loadSettings()"
+                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">
+                    Reset
+                </button>
+                <button type="submit"
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                    Save Settings
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Important Notes -->
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+    <p class="text-sm text-yellow-800 font-semibold mb-2">⚠️ Important Notes:</p>
+    <ul class="text-sm text-yellow-700 list-disc list-inside space-y-1">
+        <li>Settings are stored in the <code>.env</code> file (not committed to git)</li>
+        <li>Server restart required for changes to take effect</li>
+        <li>Only modified fields will be updated when you click Save</li>
+        <li>Masked values (****) are already configured - leave blank to keep unchanged</li>
+    </ul>
+</div>
+
+<script>
+let currentSettings = {};
+
+// Load settings on page load
+document.addEventListener('DOMContentLoaded', loadSettings);
+
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings/');
+        if (!response.ok) throw new Error('Failed to load settings');
+
+        currentSettings = await response.json();
+
+        // Populate form (show masked values as placeholders)
+        document.getElementById('anthropic_api_key').placeholder = currentSettings.anthropic_api_key || 'sk-ant-...';
+        document.getElementById('notion_token').placeholder = currentSettings.notion_token || 'secret_...';
+        document.getElementById('notion_page_id').value = currentSettings.notion_page_id || '';
+        document.getElementById('slack_webhook_url').placeholder = currentSettings.slack_webhook_url || 'https://hooks.slack.com/...';
+        document.getElementById('timezone').value = currentSettings.timezone || 'Europe/Madrid';
+        document.getElementById('weekly_run_day').value = currentSettings.weekly_run_day || 6;
+        document.getElementById('weekly_run_hour').value = currentSettings.weekly_run_hour || 8;
+        document.getElementById('weekly_run_minute').value = currentSettings.weekly_run_minute || 0;
+
+        showStatus('Settings loaded', 'success');
+    } catch (error) {
+        showStatus(`Error loading settings: ${error.message}`, 'error');
+    }
+}
+
+async function saveSettings(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+    const updates = {};
+
+    // Only include non-empty values (to preserve masked secrets)
+    for (const [key, value] of formData.entries()) {
+        if (value && value.trim() !== '') {
+            // Convert numeric fields
+            if (key === 'weekly_run_day' || key === 'weekly_run_hour' || key === 'weekly_run_minute') {
+                updates[key] = parseInt(value);
+            } else {
+                updates[key] = value.trim();
+            }
+        }
+    }
+
+    try {
+        const response = await fetch('/api/settings/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to save settings');
+        }
+
+        const result = await response.json();
+        showStatus(result.message, 'success');
+
+        // Clear password fields after save
+        document.getElementById('anthropic_api_key').value = '';
+        document.getElementById('notion_token').value = '';
+        document.getElementById('slack_webhook_url').value = '';
+
+        // Reload settings to show new masked values
+        setTimeout(loadSettings, 1000);
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'error');
+    }
+}
+
+async function testConnections() {
+    showStatus('Testing connections...', 'info');
+
+    try {
+        const response = await fetch('/api/settings/test-connections', {
+            method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Connection test failed');
+
+        const result = await response.json();
+        const { results } = result;
+
+        let message = 'Connection Test Results:\n';
+        message += `Anthropic: ${results.anthropic ? '✅' : '❌'}\n`;
+        message += `Notion: ${results.notion ? '✅' : '❌'}\n`;
+        message += `Slack: ${results.slack ? '✅' : '❌'}`;
+
+        showStatus(message, results.anthropic ? 'success' : 'warning');
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'error');
+    }
+}
+
+function toggleVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    field.type = field.type === 'password' ? 'text' : 'password';
+}
+
+function showStatus(message, type) {
+    const statusEl = document.getElementById('status-message');
+    statusEl.className = `p-4 rounded mb-4 ${
+        type === 'success' ? 'bg-green-100 text-green-800' :
+        type === 'error' ? 'bg-red-100 text-red-800' :
+        type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+        'bg-blue-100 text-blue-800'
+    }`;
+    statusEl.textContent = message;
+    statusEl.classList.remove('hidden');
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        statusEl.classList.add('hidden');
+    }, 5000);
+}
+</script>
+{% endblock %}
