@@ -51,14 +51,25 @@
     {% endif %}
 </div>
 
-<!-- Next Scheduled Run -->
+<!-- Scheduler Status -->
 <div class="bg-white rounded-lg shadow p-6 mb-8">
-    <h2 class="text-lg font-semibold mb-4">Next Scheduled Run</h2>
-    {% if next_run %}
-        <p class="text-gray-700">{{ next_run }}</p>
-    {% else %}
-        <p class="text-gray-500">Scheduler not configured yet (Phase 5F)</p>
-    {% endif %}
+    <h2 class="text-lg font-semibold mb-4">Scheduler Status</h2>
+    <div id="scheduler-status">
+        <div class="flex items-center mb-2">
+            <span class="w-3 h-3 rounded-full mr-2" id="scheduler-indicator"></span>
+            <span id="scheduler-state">Loading...</span>
+        </div>
+        <p class="text-sm text-gray-500">Next run:</p>
+        <p class="text-lg font-medium" id="next-run">--</p>
+        <div class="mt-4 flex gap-2">
+            <button onclick="toggleScheduler()" id="toggle-btn" class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">
+                Pause
+            </button>
+            <button onclick="runNow()" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                Run Now
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Quick Actions -->
@@ -98,5 +109,80 @@ async function runAction(action) {
         statusEl.innerHTML = `<span class="text-red-600">❌ Error: ${error.message}</span>`;
     }
 }
+
+async function loadSchedulerStatus() {
+    try {
+        const response = await fetch('/api/scheduler/status');
+        const data = await response.json();
+
+        const indicator = document.getElementById('scheduler-indicator');
+        const state = document.getElementById('scheduler-state');
+        const nextRun = document.getElementById('next-run');
+        const toggleBtn = document.getElementById('toggle-btn');
+
+        if (data.running && !data.paused) {
+            indicator.className = 'w-3 h-3 rounded-full mr-2 bg-green-500';
+            state.textContent = 'Running';
+            toggleBtn.textContent = 'Pause';
+        } else if (data.paused) {
+            indicator.className = 'w-3 h-3 rounded-full mr-2 bg-yellow-500';
+            state.textContent = 'Paused';
+            toggleBtn.textContent = 'Resume';
+        } else {
+            indicator.className = 'w-3 h-3 rounded-full mr-2 bg-red-500';
+            state.textContent = 'Stopped';
+            toggleBtn.textContent = 'Start';
+        }
+
+        if (data.next_run) {
+            const nextDate = new Date(data.next_run);
+            nextRun.textContent = nextDate.toLocaleString();
+        } else {
+            nextRun.textContent = 'Not scheduled';
+        }
+    } catch (error) {
+        console.error('Failed to load scheduler status:', error);
+    }
+}
+
+async function toggleScheduler() {
+    const btn = document.getElementById('toggle-btn');
+    const action = btn.textContent.toLowerCase();
+
+    try {
+        const response = await fetch(`/api/scheduler/${action}`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            loadSchedulerStatus();
+        }
+    } catch (error) {
+        console.error('Failed to toggle scheduler:', error);
+    }
+}
+
+async function runNow() {
+    if (!confirm('Run the full pipeline now? This may take a few minutes.')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+
+    try {
+        const response = await fetch('/api/scheduler/run-now', { method: 'POST' });
+        const data = await response.json();
+        alert(data.message);
+        loadSchedulerStatus();
+    } catch (error) {
+        alert('Pipeline failed: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Now';
+    }
+}
+
+// Load on page load
+loadSchedulerStatus();
+// Refresh every 30 seconds
+setInterval(loadSchedulerStatus, 30000);
 </script>
 {% endblock %}
