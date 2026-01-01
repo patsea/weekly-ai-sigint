@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Weekly AI Sigint{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <!-- Total Sources -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="text-gray-500 text-sm font-medium">Total Sources</div>
+        <div class="text-3xl font-bold text-gray-900 mt-2">{{ stats.total_sources }}</div>
+    </div>
+
+    <!-- Active Sources -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="text-gray-500 text-sm font-medium">Active Sources</div>
+        <div class="text-3xl font-bold text-green-600 mt-2">{{ stats.active_sources }}</div>
+    </div>
+
+    <!-- Recent Content -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="text-gray-500 text-sm font-medium">Content (Last 7 Days)</div>
+        <div class="text-3xl font-bold text-blue-600 mt-2">{{ stats.recent_content }}</div>
+    </div>
+
+    <!-- Total Briefings -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="text-gray-500 text-sm font-medium">Briefings Generated</div>
+        <div class="text-3xl font-bold text-purple-600 mt-2">{{ stats.total_briefings }}</div>
+    </div>
+</div>
+
+<!-- Latest Briefing -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-lg font-semibold mb-4">Latest Briefing</h2>
+    {% if latest_briefing %}
+        <div class="border-l-4 border-blue-500 pl-4">
+            <h3 class="font-semibold text-gray-900">{{ latest_briefing.title }}</h3>
+            <p class="text-sm text-gray-600 mt-1">
+                Week of {{ latest_briefing.week_start.strftime('%b %d, %Y') }}
+            </p>
+            <p class="text-sm text-gray-500 mt-1">
+                Created {{ latest_briefing.created_at.strftime('%b %d, %Y at %H:%M') }}
+            </p>
+            <a href="/briefings" class="text-blue-600 hover:underline text-sm mt-2 inline-block">
+                View details →
+            </a>
+        </div>
+    {% else %}
+        <p class="text-gray-500">No briefings generated yet. Run the pipeline to create your first briefing.</p>
+    {% endif %}
+</div>
+
+<!-- Next Scheduled Run -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-lg font-semibold mb-4">Next Scheduled Run</h2>
+    {% if next_run %}
+        <p class="text-gray-700">{{ next_run }}</p>
+    {% else %}
+        <p class="text-gray-500">Scheduler not configured yet (Phase 5F)</p>
+    {% endif %}
+</div>
+
+<!-- Quick Actions -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Quick Actions</h2>
+    <div class="flex space-x-4">
+        <button onclick="runAction('fetch')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+            Fetch Content
+        </button>
+        <button onclick="runAction('synthesize')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">
+            Synthesize Briefing
+        </button>
+        <button onclick="runAction('full-pipeline')" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">
+            Run Full Pipeline
+        </button>
+    </div>
+    <div id="action-status" class="mt-4 text-sm"></div>
+</div>
+
+<script>
+async function runAction(action) {
+    const statusEl = document.getElementById('action-status');
+    statusEl.innerHTML = `<span class="text-blue-600">Running ${action}...</span>`;
+
+    try {
+        const response = await fetch(`/api/run/${action}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok) {
+            statusEl.innerHTML = `<span class="text-green-600">✅ ${action} completed successfully</span>`;
+            // Reload page after 2 seconds to show updated stats
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            statusEl.innerHTML = `<span class="text-red-600">❌ Error: ${data.detail || 'Unknown error'}</span>`;
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<span class="text-red-600">❌ Error: ${error.message}</span>`;
+    }
+}
+</script>
+{% endblock %}
