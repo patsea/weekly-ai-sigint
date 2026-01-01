@@ -62,8 +62,8 @@ async def sources_page(request: Request):
 
 @router.get("/briefings", response_class=HTMLResponse)
 async def briefings_page(request: Request):
-    """Briefings list page (placeholder)."""
-    return templates.TemplateResponse("base.html", {
+    """Briefings list page."""
+    return templates.TemplateResponse("briefings.html", {
         "request": request,
     })
 
