@@ -83,7 +83,8 @@ class SynthesizerService:
 
         self.session.add(briefing)
         await self.session.commit()
-        await self.session.refresh(briefing)
+        # Refresh briefing with content_items relationship loaded
+        await self.session.refresh(briefing, ["content_items"])
 
         # 6. Link content items to briefing (many-to-many relationship)
         for item in items:

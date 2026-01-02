@@ -1075,7 +1075,58 @@ curl -X POST http://localhost:8000/api/run/notify/slack
 
 ### Phase 5: UI & Scheduling
 
-#### Scope
+Phase 5 is the largest phase and should be executed in 6 sub-phases:
+
+| Sub-Phase | Focus | Estimated Time | Verification Gate |
+|-----------|-------|----------------|-------------------|
+| **5A** | Base Templates + Dashboard | 1-2 hours | Homepage renders with stats |
+| **5B** | Sources Management UI | 1-2 hours | Can add/edit/delete sources via browser |
+| **5C** | Briefings Viewer | 1 hour | Can view past briefings in browser |
+| **5D** | Settings + Credentials UI | 1-2 hours | Can update API keys via browser |
+| **5E** | Prompt Editor | 30 min | Can edit prompt template via browser |
+| **5F** | APScheduler Integration | 1-2 hours | Scheduler status endpoint, next run time |
+
+**Recommended order:** 5A → 5B → 5C → 5D → 5E → 5F
+
+#### Sub-Phase 5A: Base Templates + Dashboard
+- `templates/base.html` — Tailwind CSS layout, navigation
+- `templates/index.html` — Dashboard with stats
+- `static/css/custom.css` — Any custom styles
+- Update `main.py` to serve templates with Jinja2
+- **Verification:** `curl http://localhost:8000/ | grep -i dashboard`
+
+#### Sub-Phase 5B: Sources Management UI
+- `templates/sources.html` — List, add, edit, delete sources
+- `routers/views.py` — HTML page routes (separate from API routes)
+- Filter by category, import from JSON
+- **Verification:** Open http://localhost:8000/sources, add a source via form
+
+#### Sub-Phase 5C: Briefings Viewer
+- `templates/briefings.html` — List past briefings
+- `templates/briefing_detail.html` — Single briefing view
+- Links to Notion page if exported
+- **Verification:** Open http://localhost:8000/briefings, click a briefing
+
+#### Sub-Phase 5D: Settings + Credentials UI
+- `templates/settings.html` — API keys, config
+- Credential encryption with Fernet
+- Test connection buttons
+- **Verification:** Open http://localhost:8000/settings, update a credential
+
+#### Sub-Phase 5E: Prompt Editor
+- `templates/prompt.html` — Edit prompt template
+- Load/save to `prompts/sunday_briefing.md`
+- **Verification:** Open http://localhost:8000/prompt, edit and save
+
+#### Sub-Phase 5F: APScheduler Integration
+- `services/scheduler.py` — Weekly cron job
+- Update `main.py` lifespan to start scheduler
+- Status endpoint: `GET /api/scheduler/status`
+- **Verification:** `curl http://localhost:8000/api/scheduler/status`
+
+---
+
+#### Full Phase 5 Scope (Reference)
 - [x] Create HTML templates with Tailwind
 - [x] Implement configuration UI
 - [x] Set up APScheduler for weekly runs
@@ -1433,6 +1484,103 @@ SQLite at `data/briefings.db`. Tables: sources, content_items, briefings, creden
 - Shared watchlists
 - Collaborative annotations
 - Role-based access
+
+### v1.6 — Multiple Watchlists / Topic Channels
+Support running multiple independent briefings for different focus areas (e.g., AI, GTM Engineering, Competitive Intel).
+
+**Data model changes:**
+```sql
+CREATE TABLE watchlists (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,           -- "AI & Enterprise Tech", "GTM Engineering"
+    description TEXT,
+    prompt_template_path TEXT,    -- Custom prompt per watchlist
+    schedule_cron TEXT,           -- Independent schedule
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP
+);
+
+-- Sources get a watchlist_id (nullable for "all watchlists")
+ALTER TABLE sources ADD COLUMN watchlist_id INTEGER REFERENCES watchlists(id);
+
+-- Briefings tagged to watchlist
+ALTER TABLE briefings ADD COLUMN watchlist_id INTEGER REFERENCES watchlists(id);
+```
+
+**Features:**
+- Create/manage multiple watchlists via UI
+- Assign sources to specific watchlists (or "global" for all)
+- Custom prompt template per watchlist
+- Independent scheduling per watchlist
+- Separate Notion pages per watchlist
+- Slack notifications tagged by watchlist
+- API: `POST /api/run/synthesize?watchlist_id=2`
+
+**Example use cases:**
+| Watchlist | Focus | Sources |
+|-----------|-------|---------|
+| AI & Enterprise Tech | Core focus | Full 150+ source list |
+| GTM Engineering | Sales/marketing tech | Pavilion, GTMnow, RevOps Co-op, etc. |
+| Competitive Intel | Competitor tracking | Company blogs, press releases |
+| Regulatory | Compliance | EU AI Act, NIST, gov sources |
+
+### v1.7 — Dynamic Source Management
+Flexible source addition with scheduling options.
+
+**New source fields:**
+```sql
+ALTER TABLE sources ADD COLUMN inclusion_mode TEXT DEFAULT 'permanent';
+-- Values: 'permanent', 'next_run_only', 'one_off_pending'
+
+ALTER TABLE sources ADD COLUMN added_via TEXT DEFAULT 'manual';
+-- Values: 'manual', 'import', 'suggestion', 'api'
+
+ALTER TABLE sources ADD COLUMN expires_at TIMESTAMP;
+-- For temporary sources
+```
+
+**Features:**
+
+1. **Add source for next run only**
+   - Source flagged `inclusion_mode = 'next_run_only'`
+   - Fetched in next scheduled run
+   - Automatically set to `is_active = FALSE` after run
+   - Content retained, source becomes inactive
+
+2. **One-off fetch (don't persist)**
+   - Source flagged `inclusion_mode = 'one_off_pending'`
+   - Fetched immediately or in next run
+   - Content included in briefing
+   - Source record deleted after processing
+
+3. **Quick-add from URL**
+   - Paste URL, auto-detect RSS feed
+   - Choose: permanent / next run / one-off
+   - Optional: assign to watchlist
+
+4. **Source suggestions**
+   - AI analyzes fetched content for mentioned sources
+   - Suggests new sources based on citations/references
+   - One-click add to watchlist
+
+**API endpoints:**
+```
+POST /api/sources/quick-add
+{
+    "url": "https://example.com/blog",
+    "inclusion_mode": "next_run_only",
+    "watchlist_id": 1
+}
+
+POST /api/sources/{id}/include-next-run
+POST /api/sources/{id}/fetch-once
+```
+
+**UI additions:**
+- "Add for next run" button on source form
+- "Try this source once" option
+- Source status badges: `permanent` | `next run` | `one-off`
+- Expired/inactive source cleanup view
 
 ---
 

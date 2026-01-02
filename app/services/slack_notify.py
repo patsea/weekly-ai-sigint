@@ -6,6 +6,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.sql import func
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.briefing import Briefing
@@ -45,12 +46,21 @@ async def send_briefing_to_slack(
     if not settings.SLACK_WEBHOOK_URL:
         raise ValueError("SLACK_WEBHOOK_URL not configured in environment")
 
-    # Get briefing
+    # Get briefing with eager loading of content_items relationship
     if briefing_id:
-        stmt = select(Briefing).where(Briefing.id == briefing_id)
+        stmt = (
+            select(Briefing)
+            .options(selectinload(Briefing.content_items))
+            .where(Briefing.id == briefing_id)
+        )
     else:
         # Get latest briefing
-        stmt = select(Briefing).order_by(Briefing.created_at.desc()).limit(1)
+        stmt = (
+            select(Briefing)
+            .options(selectinload(Briefing.content_items))
+            .order_by(Briefing.created_at.desc())
+            .limit(1)
+        )
 
     result = await session.execute(stmt)
     briefing = result.scalar_one_or_none()
