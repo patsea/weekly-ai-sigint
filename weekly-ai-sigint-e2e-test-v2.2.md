@@ -689,14 +689,15 @@ for run in d.get('history', [])[:3]:
 
 ```bash
 echo "=== Stage 8: Error Log Check ==="
-ERROR_COUNT=$(grep -ci "error\|exception\|traceback" /tmp/e2e-test.log || echo "0")
-echo "Errors found: $ERROR_COUNT"
-
-if [ "$ERROR_COUNT" != "0" ]; then
-    echo ""
-    echo "Recent errors:"
-    grep -i "error\|exception\|traceback" /tmp/e2e-test.log | tail -10
-fi
+grep -ci "error\|exception\|traceback" /tmp/e2e-test.log 2>/dev/null | python3 -c "
+import sys
+count = sys.stdin.read().strip()
+count = int(count) if count.isdigit() else 0
+print('Errors found: ' + str(count))
+if count > 0:
+    print('')
+    print('Recent errors:')
+" && grep -i "error\|exception\|traceback" /tmp/e2e-test.log 2>/dev/null | tail -10 || true
 ```
 
 ---
@@ -750,6 +751,7 @@ After running all stages, verify:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.2.1 | 2026-01-02 | Fixed Stage 8 error log check - removed $() subshell pattern. |
 | 2.2 | 2026-01-02 | Fixed SQLAlchemy greenlet errors with selectinload. Removed all bash $() subshell patterns. All credential validation now uses Python pipe chains. Updated Slack webhook URL. |
 | 2.1 | 2026-01-02 | Fixed credential validation to use explicit CLAUDE CODE directives. Added GATE CHECK sections. Made prompts mandatory, not optional documentation. |
 | 2.0 | 2026-01-02 | Added interactive credential validation. Fixed bash escaping issues. |
