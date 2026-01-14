@@ -37,3 +37,5 @@ cryptography==42.0.2
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
+trafilatura
+lxml_html_clean

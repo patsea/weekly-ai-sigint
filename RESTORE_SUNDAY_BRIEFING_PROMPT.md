@@ -1,3 +1,35 @@
+# Restore Sunday Briefing Prompt
+
+**Created**: 2026-01-13
+**Purpose**: Restore the original comprehensive prompt that was overwritten
+**Execute from**: `~/Dropbox/ALOMA/claude-code/weekly-ai-sigint/`
+**Estimated Duration**: 2 minutes
+
+---
+
+## Prerequisites
+
+Before executing, read best practices from:
+```
+~/Dropbox/ALOMA/claude-code/CLAUDE_CODE_UNIVERSAL_BEST_PRACTICES.md
+```
+
+---
+
+## Step 1: Backup Current Prompt
+
+```bash
+cd ~/Dropbox/ALOMA/claude-code/weekly-ai-sigint
+cp prompts/sunday_briefing.md prompts/sunday_briefing.md.backup
+echo "✅ Backup created"
+```
+
+---
+
+## Step 2: Restore Original Prompt
+
+```bash
+cat > prompts/sunday_briefing.md << 'EOF'
 # Sunday Briefing Pack — Synthesis Prompt
 
 ## ROLE
@@ -63,3 +95,40 @@ From tracked sources: top posts or publications this week.
 ## CONTENT TO SYNTHESIZE
 
 {{CONTENT}}
+EOF
+
+echo "✅ Prompt restored"
+```
+
+---
+
+## Step 3: Verify
+
+```bash
+cat prompts/sunday_briefing.md | head -30
+wc -w prompts/sunday_briefing.md
+```
+
+**Expected**: ~400 words, full structured prompt
+
+---
+
+## Step 4: Test Pipeline
+
+```bash
+curl -s -X POST http://localhost:8000/api/scheduler/run-now | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print('Success:', d.get('success'))
+print('Briefing ID:', d.get('steps', {}).get('synthesize', {}).get('briefing_id'))
+"
+```
+
+---
+
+## Step 5: Check Slack Output
+
+After the pipeline runs, verify Slack receives a properly structured briefing with:
+- Executive Brief section
+- Thematic Digest sections (A through G)
+- Proper formatting

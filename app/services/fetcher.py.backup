@@ -9,7 +9,6 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.source import Source, SourceType
 from app.models.content import ContentItem
-from app.services.content_extractor import extract_with_rate_limit
 
 
 async def fetch_from_source(source: Source, session: AsyncSession) -> Dict[str, Any]:
@@ -77,18 +76,11 @@ async def _fetch_rss(source: Source, session: AsyncSession, result: Dict[str, An
                 result["duplicates"] += 1
                 continue
 
-            # Extract full article content
-            full_content = await extract_with_rate_limit(url)
-
-            # Use full content if available, otherwise fall back to summary
-            content_text = full_content if full_content else summary
-
             # Create and add new content item
             content_item = ContentItem(
                 source_id=source_id,
                 title=title,
                 url=url,
-                content=content_text,
                 summary=summary,
                 published_at=published_at
             )

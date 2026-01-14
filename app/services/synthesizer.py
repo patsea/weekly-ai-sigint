@@ -74,8 +74,14 @@ class SynthesizerService:
         week_end = datetime.now(timezone.utc)
         week_start = week_end - timedelta(days=days_back)
 
+        # Format title based on time window
+        if days_back == 1:
+            title = f"Daily Briefing - {week_end.strftime('%b %d, %Y')}"
+        else:
+            title = f"Briefing Pack - {week_start.strftime('%b %d')} to {week_end.strftime('%b %d, %Y')}"
+
         briefing = Briefing(
-            title=f"Sunday Briefing Pack - {week_start.strftime('%b %d')} to {week_end.strftime('%b %d, %Y')}",
+            title=title,
             week_start=week_start,
             week_end=week_end,
             content=briefing_content,
@@ -121,11 +127,13 @@ class SynthesizerService:
 
             section += f"**URL:** {item.url}\n\n"
 
-            # Include summary or truncated content
-            if item.summary:
-                content_preview = item.summary[:1500]
-                if len(item.summary) > 1500:
-                    content_preview += "..."
+            # Include full content (or summary as fallback)
+            text = item.content or item.summary or ""
+            if text:
+                # Use more content - up to 8000 chars per article
+                content_preview = text[:8000]
+                if len(text) > 8000:
+                    content_preview += "...\n\n[Content truncated]"
                 section += f"{content_preview}\n\n"
 
             section += "---\n"

@@ -17,8 +17,8 @@ scheduler: Optional[AsyncIOScheduler] = None
 job_history: list[dict] = []
 
 
-async def run_weekly_pipeline():
-    """Execute the full weekly briefing pipeline.
+async def run_daily_pipeline():
+    """Execute the full daily briefing pipeline.
 
     Pipeline steps:
     1. Fetch content from all active sources
@@ -26,11 +26,11 @@ async def run_weekly_pipeline():
     3. Export to Notion (if configured)
     4. Send Slack notification (if configured)
     """
-    from app.models.database import async_session
-    from app.services.fetcher import fetch_all_sources
-    from app.services.synthesizer import synthesize_briefing
+    from app.models.database import async_session_maker
+    from app.services.fetcher import fetch_from_all_sources
+    from app.services.synthesizer import synthesize_weekly_briefing
     from app.services.notion_export import export_briefing_to_notion
-    from app.services.slack_notify import send_slack_notification
+    from app.services.slack_notify import send_briefing_to_slack
 
     start_time = datetime.now()
     result = {
@@ -41,18 +41,19 @@ async def run_weekly_pipeline():
     }
 
     try:
-        async with async_session() as session:
+        async with async_session_maker() as session:
             # Step 1: Fetch content
             logger.info("Pipeline Step 1: Fetching content from sources...")
-            fetch_result = await fetch_all_sources(session)
+            fetch_results = await fetch_from_all_sources(session)
+            total_items = sum(r.get("items_fetched", 0) for r in fetch_results)
             result["steps"]["fetch"] = {
                 "success": True,
-                "items_fetched": fetch_result.get("total_items", 0),
+                "items_fetched": total_items,
             }
 
             # Step 2: Synthesize briefing
             logger.info("Pipeline Step 2: Synthesizing briefing with Claude...")
-            briefing = await synthesize_briefing(session, days_back=7)
+            briefing = await synthesize_weekly_briefing(session, days_back=settings.BRIEFING_DAYS_BACK)
             result["steps"]["synthesize"] = {
                 "success": True,
                 "briefing_id": briefing.id if briefing else None,
@@ -80,7 +81,7 @@ async def run_weekly_pipeline():
             if settings.SLACK_WEBHOOK_URL:
                 logger.info("Pipeline Step 4: Sending Slack notification...")
                 try:
-                    slack_result = await send_slack_notification(session, briefing.id)
+                    slack_result = await send_briefing_to_slack(session, briefing.id)
                     result["steps"]["slack"] = {
                         "success": True,
                     }
@@ -134,31 +135,24 @@ def init_scheduler() -> AsyncIOScheduler:
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
     # Get schedule from settings
-    # day_of_week: 0=Monday, 6=Sunday
-    day_of_week = settings.WEEKLY_RUN_DAY
-    hour = settings.WEEKLY_RUN_HOUR
-    minute = settings.WEEKLY_RUN_MINUTE
+    hour = settings.DAILY_RUN_HOUR
+    minute = settings.DAILY_RUN_MINUTE
     timezone = settings.TIMEZONE
 
-    # Add the weekly job
+    # Add the daily job
     scheduler.add_job(
-        run_weekly_pipeline,
+        run_daily_pipeline,
         CronTrigger(
-            day_of_week=day_of_week,
             hour=hour,
             minute=minute,
             timezone=timezone,
         ),
-        id='weekly_briefing',
-        name='Weekly AI Sigint Briefing',
+        id='daily_briefing',
+        name='Daily AI Sigint Briefing',
         replace_existing=True,
     )
 
-    # Day names for logging
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    day_name = day_names[day_of_week] if 0 <= day_of_week <= 6 else str(day_of_week)
-
-    logger.info(f"Scheduler initialized: {day_name} at {hour:02d}:{minute:02d} {timezone}")
+    logger.info(f"Scheduler initialized: Daily at {hour:02d}:{minute:02d} {timezone}")
     return scheduler
 
 
@@ -211,7 +205,7 @@ def get_scheduler_status() -> dict:
             "history": [],
         }
 
-    job = scheduler.get_job('weekly_briefing')
+    job = scheduler.get_job('daily_briefing')
     next_run = job.next_run_time.isoformat() if job and job.next_run_time else None
 
     return {

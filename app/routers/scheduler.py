@@ -8,7 +8,7 @@ from app.services.scheduler import (
     get_scheduler_status,
     pause_scheduler,
     resume_scheduler,
-    run_weekly_pipeline,
+    run_daily_pipeline,
     job_history,
 )
 
@@ -68,9 +68,9 @@ async def resume():
 
 @router.post("/run-now", response_model=ActionResult)
 async def run_now():
-    """Manually trigger the weekly pipeline immediately."""
+    """Manually trigger the daily pipeline immediately."""
     try:
-        result = await run_weekly_pipeline()
+        result = await run_daily_pipeline()
         return ActionResult(
             success=result.get("success", False),
             message="Pipeline executed" if result.get("success") else f"Pipeline failed: {result.get('error')}",
