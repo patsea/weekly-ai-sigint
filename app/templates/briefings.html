@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Briefings - Weekly AI Sigint{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Briefing History</h1>
+    <p class="text-gray-600 mt-1">View and manage synthesized weekly briefings</p>
+</div>
+
+<!-- Briefings List -->
+<div class="bg-white rounded-lg shadow">
+    <div id="briefings-list" class="divide-y divide-gray-200">
+        <div class="p-6 text-center text-gray-500">
+            <div class="spinner mx-auto"></div>
+            <p class="mt-2">Loading briefings...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white mb-10">
+        <div class="flex justify-between items-start mb-4">
+            <div class="flex-1">
+                <h3 id="detail-title" class="text-xl font-semibold"></h3>
+                <p id="detail-meta" class="text-sm text-gray-600 mt-1"></p>
+            </div>
+            <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 ml-4">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Export Status Badges -->
+        <div id="detail-badges" class="flex space-x-2 mb-4"></div>
+
+        <!-- Briefing Content -->
+        <div id="detail-content" class="prose max-w-none bg-gray-50 p-4 rounded border border-gray-200 max-h-96 overflow-y-auto">
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between items-center mt-6 pt-4 border-t">
+            <div class="space-x-2">
+                <button id="export-notion-btn" onclick="exportToNotion()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    Export to Notion
+                </button>
+                <button id="notify-slack-btn" onclick="notifySlack()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition text-sm">
+                    Send to Slack
+                </button>
+            </div>
+            <div class="space-x-2">
+                <button onclick="deleteBriefing()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition text-sm">
+                    Delete
+                </button>
+                <button onclick="closeDetailModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <div id="detail-status" class="mt-4 text-sm"></div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-semibold mb-4">Confirm Delete</h3>
+        <p class="mb-6 text-gray-700">Are you sure you want to delete this briefing? This action cannot be undone.</p>
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeDeleteModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">
+                Cancel
+            </button>
+            <button onclick="confirmDelete()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let briefings = [];
+let currentBriefing = null;
+let deleteBriefingId = null;
+
+// Load briefings on page load
+document.addEventListener('DOMContentLoaded', loadBriefings);
+
+async function loadBriefings() {
+    try {
+        const response = await fetch('/api/briefings/');
+        briefings = await response.json();
+        renderBriefings();
+    } catch (error) {
+        document.getElementById('briefings-list').innerHTML = `
+            <div class="p-6 text-center text-red-600">
+                Error loading briefings: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function renderBriefings() {
+    const listEl = document.getElementById('briefings-list');
+
+    if (briefings.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-gray-500">
+                No briefings yet. Run the pipeline to create your first briefing.
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = briefings.map(briefing => {
+        const weekStart = new Date(briefing.week_start);
+        const created = new Date(briefing.created_at);
+        const hasNotion = briefing.notion_page_id;
+        const hasSlack = briefing.slack_sent_at;
+
+        return `
+            <div class="p-6 hover:bg-gray-50 cursor-pointer" onclick="showDetail(${briefing.id})">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-900">${briefing.title}</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Week of ${weekStart.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Created ${created.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})} at ${created.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
+                        </p>
+                    </div>
+                    <div class="flex space-x-2">
+                        ${hasNotion ? '<span class="badge-active text-xs">📄 Notion</span>' : ''}
+                        ${hasSlack ? '<span class="badge-active text-xs">💬 Slack</span>' : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function showDetail(id) {
+    try {
+        const response = await fetch(`/api/briefings/${id}`);
+        if (!response.ok) throw new Error('Failed to load briefing');
+
+        currentBriefing = await response.json();
+
+        const weekStart = new Date(currentBriefing.week_start);
+        const weekEnd = new Date(currentBriefing.week_end);
+        const created = new Date(currentBriefing.created_at);
+
+        document.getElementById('detail-title').textContent = currentBriefing.title;
+        document.getElementById('detail-meta').textContent =
+            `Week of ${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()} • Created ${created.toLocaleDateString()} at ${created.toLocaleTimeString()}`;
+
+        // Render badges
+        const badgesHtml = [];
+        if (currentBriefing.notion_page_id) {
+            const notionExported = new Date(currentBriefing.notion_exported_at);
+            badgesHtml.push(`
+                <span class="badge-active">
+                    📄 Exported to Notion (${notionExported.toLocaleDateString()})
+                </span>
+            `);
+        }
+        if (currentBriefing.slack_sent_at) {
+            const slackSent = new Date(currentBriefing.slack_sent_at);
+            badgesHtml.push(`
+                <span class="badge-active">
+                    💬 Sent to Slack (${slackSent.toLocaleDateString()})
+                </span>
+            `);
+        }
+        document.getElementById('detail-badges').innerHTML = badgesHtml.join('');
+
+        // Render content (convert markdown to simple HTML)
+        const contentHtml = markdownToHtml(currentBriefing.content);
+        document.getElementById('detail-content').innerHTML = contentHtml;
+
+        // Update buttons
+        document.getElementById('export-notion-btn').disabled = !!currentBriefing.notion_page_id;
+        document.getElementById('notify-slack-btn').disabled = !!currentBriefing.slack_sent_at;
+
+        document.getElementById('detail-modal').classList.remove('hidden');
+    } catch (error) {
+        alert(`Error loading briefing: ${error.message}`);
+    }
+}
+
+function closeDetailModal() {
+    document.getElementById('detail-modal').classList.add('hidden');
+    currentBriefing = null;
+}
+
+function markdownToHtml(markdown) {
+    // Simple markdown conversion (handles basics)
+    let html = markdown;
+
+    // Headers
+    html = html.replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>');
+    html = html.replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mt-6 mb-3">$1</h2>');
+    html = html.replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mt-8 mb-4">$1</h1>');
+
+    // Bullet lists
+    html = html.replace(/^[-*] (.*$)/gm, '<li class="ml-4">$1</li>');
+    html = html.replace(/(<li.*<\/li>)/s, '<ul class="list-disc ml-4 space-y-1">$1</ul>');
+
+    // Paragraphs
+    html = html.split('\n\n').map(para => {
+        if (para.startsWith('<') || para.trim() === '') return para;
+        return `<p class="mb-4">${para.replace(/\n/g, '<br>')}</p>`;
+    }).join('\n');
+
+    // Bold and italic
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    return html;
+}
+
+async function exportToNotion() {
+    if (!currentBriefing) return;
+
+    const statusEl = document.getElementById('detail-status');
+    statusEl.innerHTML = '<span class="text-blue-600">Exporting to Notion...</span>';
+
+    try {
+        const response = await fetch(`/api/run/export/notion?briefing_id=${currentBriefing.id}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Export failed');
+        }
+
+        const result = await response.json();
+        statusEl.innerHTML = `<span class="text-green-600">✅ Exported to Notion successfully!</span>`;
+
+        // Reload briefing to update badges
+        setTimeout(() => {
+            showDetail(currentBriefing.id);
+            loadBriefings();
+        }, 1500);
+    } catch (error) {
+        statusEl.innerHTML = `<span class="text-red-600">❌ Error: ${error.message}</span>`;
+    }
+}
+
+async function notifySlack() {
+    if (!currentBriefing) return;
+
+    const statusEl = document.getElementById('detail-status');
+    statusEl.innerHTML = '<span class="text-blue-600">Sending to Slack...</span>';
+
+    try {
+        const response = await fetch(`/api/run/notify/slack?briefing_id=${currentBriefing.id}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Notification failed');
+        }
+
+        const result = await response.json();
+        statusEl.innerHTML = `<span class="text-green-600">✅ Sent to Slack successfully!</span>`;
+
+        // Reload briefing to update badges
+        setTimeout(() => {
+            showDetail(currentBriefing.id);
+            loadBriefings();
+        }, 1500);
+    } catch (error) {
+        statusEl.innerHTML = `<span class="text-red-600">❌ Error: ${error.message}</span>`;
+    }
+}
+
+function deleteBriefing() {
+    if (!currentBriefing) return;
+    deleteBriefingId = currentBriefing.id;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    deleteBriefingId = null;
+    document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+    if (!deleteBriefingId) return;
+
+    try {
+        const response = await fetch(`/api/briefings/${deleteBriefingId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete briefing');
+        }
+
+        closeDeleteModal();
+        closeDetailModal();
+        await loadBriefings();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+        closeDeleteModal();
+    }
+}
+</script>
+{% endblock %}
