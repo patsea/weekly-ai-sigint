@@ -3,21 +3,22 @@
 <!-- AUTO-GENERATED: Recent Changes -->
 ### Recent Activity
 
-**Last Updated**: 2026-01-18
-**Commits This Week**: 3
+**Last Updated**: 2026-01-19
+**Commits This Week**: 4
 
-**Recent Changes** (12 files):
+**Today's Commits** (1):
+- `cf46f7d` chore: auto-commit: 8 files 2026-01-19
+
+**Recent Changes** (9 files):
 - `.gitignore`
-- `FIX_FETCHER_FULL_CONTENT.md`
 - `README.md`
-- `RESTORE_SUNDAY_BRIEFING_PROMPT.md`
 - `SETUP_WEEKLY_AI_SIGINT_LAUNCHD.md`
 - `app/models/briefing.py`
 - `app/routers/briefings.py`
 - `app/templates/briefings.html`
-- `prompts/sunday_briefing.md`
 - `prompts/sunday_briefing.md.backup`
-- ... and 2 more
+- `prompts/sunday_briefing.md.weekly-backup`
+- `tests/test_briefings.py`
 <!-- END AUTO-GENERATED -->
 
 
