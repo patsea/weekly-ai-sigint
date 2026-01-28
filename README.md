@@ -3,14 +3,15 @@
 <!-- AUTO-GENERATED: Recent Changes -->
 ### Recent Activity
 
-**Last Updated**: 2026-01-21
-**Commits This Week**: 5
+**Last Updated**: 2026-01-28
+**Commits This Week**: 2
 
-**Today's Commits** (1):
-- `bcc3dae` chore: auto-commit: 1 files 2026-01-21
-
-**Recent Changes** (1 files):
+**Recent Changes** (5 files):
+- `.env.example`
+- `.github/workflows/ci.yml`
+- `.gitignore`
 - `README.md`
+- `prompts/sunday_briefing.md.backup`
 <!-- END AUTO-GENERATED -->
 
 
