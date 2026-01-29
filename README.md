@@ -1,17 +1,24 @@
+[![Tests](https://github.com/patrickwilliamson/weekly-ai-sigint/actions/workflows/test.yml/badge.svg)](https://github.com/patrickwilliamson/weekly-ai-sigint/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/patrickwilliamson/weekly-ai-sigint/branch/main/graph/badge.svg)](https://codecov.io/gh/patrickwilliamson/weekly-ai-sigint)
+
+
 # Weekly AI Sigint
 
 <!-- AUTO-GENERATED: Recent Changes -->
 ### Recent Activity
 
-**Last Updated**: 2026-01-28
-**Commits This Week**: 2
+**Last Updated**: 2026-01-29
+**Commits This Week**: 3
 
-**Recent Changes** (5 files):
-- `.env.example`
-- `.github/workflows/ci.yml`
+**Recent Changes** (8 files):
+- `.coverage`
 - `.gitignore`
-- `README.md`
+- `app/config.py`
+- `docs/NOTION_INTEGRATION.md`
+- `docs/SLACK_INTEGRATION.md`
 - `prompts/sunday_briefing.md.backup`
+- `pytest.ini`
+- `tests/conftest.py`
 <!-- END AUTO-GENERATED -->
 
 
